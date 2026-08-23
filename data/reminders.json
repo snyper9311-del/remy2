@@ -21,6 +21,17 @@
         "time": "10:00",
         "days_of_week": [4]
       }
+    },
+    {
+      "id": "test-ping-0000-0000-0000-000000000001",
+      "message": "✅ Remy test message — if you got this, the WhatsApp pipeline works!",
+      "active": true,
+      "schedule": {
+        "type": "hourly",
+        "start_hour": 0,
+        "end_hour": 23,
+        "days_of_week": [0, 1, 2, 3, 4, 5, 6]
+      }
     }
   ]
 }
