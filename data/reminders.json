@@ -9,7 +9,15 @@
         "type": "hourly",
         "start_hour": 9,
         "end_hour": 21,
-        "days_of_week": [0, 1, 2, 3, 4, 5, 6]
+        "days_of_week": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
       }
     },
     {
@@ -19,7 +27,21 @@
       "schedule": {
         "type": "at_time",
         "time": "10:00",
-        "days_of_week": [4]
+        "days_of_week": [
+          4
+        ]
+      }
+    },
+    {
+      "id": "e28dcd89-aad3-4444-8083-c69d0ce31d33",
+      "message": "what up doc",
+      "active": true,
+      "schedule": {
+        "type": "at_time",
+        "time": "15:50",
+        "days_of_week": [
+          6
+        ]
       }
     }
   ]
