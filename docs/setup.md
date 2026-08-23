@@ -59,13 +59,34 @@ Run `python gui.py` to open Remy:
 
 ## Known limitations
 
+### The 24-hour window (most likely thing to break)
+
+WhatsApp only allows free-form messages within **24 hours** of *you*
+messaging the sender number. Once that window closes, Twilio rejects
+sends with error **21654 "ContentSid Required"** — which sounds like a
+code bug but isn't: it means WhatsApp now demands a pre-approved
+template instead of plain text.
+
+**Fix:** send any message at all (a single "hi" works) from your
+WhatsApp to the sandbox number. That reopens the window for another 24
+hours and reminders resume on the next hourly run. The scheduler detects
+this specific failure and logs a message saying exactly that.
+
+To remove this limitation permanently you'd need to register a real
+WhatsApp sender with Meta-approved message templates and send
+`ContentSid` instead of `Body` — a bigger setup, and reminder text would
+have to fit the approved templates.
+
+### Other limitations
+
 - The scheduler runs **once an hour**, so "at a specific time" reminders
   fire sometime during that hour, not necessarily at the exact minute.
 - Changes only take effect after you click "Push to Cloud" — the cloud
   job doesn't see local, unpushed edits.
-- The Twilio WhatsApp **sandbox** requires periodically re-sending the
-  join code from your phone if you go ~72 hours without a message.
-  Provisioning your own WhatsApp sender in Twilio removes this limit.
+- Your sandbox number is account-specific (it is **not** always
+  `+14155238886`). Use whatever number the Twilio Console's WhatsApp
+  Sandbox page shows you, and make sure `TWILIO_WHATSAPP_FROM` matches
+  it exactly, prefixed with `whatsapp:`.
 
 ## Running the scheduler manually (for testing)
 

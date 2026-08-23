@@ -42,6 +42,11 @@ logger = logging.getLogger(__name__)
 
 TWILIO_API_URL = "https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
 
+# Twilio codes that all mean the same thing in practice: WhatsApp won't accept
+# free-form text right now because more than 24 hours have passed since the
+# recipient last messaged the sender. 21654 is the one the sandbox returns.
+SESSION_WINDOW_ERRORS = {21654, 63016}
+
 
 def send_whatsapp_message(body, account_sid, auth_token, from_number, to_number):
     url = TWILIO_API_URL.format(sid=account_sid)
@@ -53,8 +58,17 @@ def send_whatsapp_message(body, account_sid, auth_token, from_number, to_number)
     )
     if not response.ok:
         # Twilio's error body has the actual "code"/"message" the generic
-        # HTTP status hides (e.g. 21211 invalid To, 21212 invalid From,
-        # 63016 outside the sandbox's allowed messaging window).
+        # HTTP status hides.
+        try:
+            code = response.json().get("code")
+        except ValueError:
+            code = None
+        if code in SESSION_WINDOW_ERRORS:
+            raise RuntimeError(
+                f"Twilio {code}: WhatsApp's 24-hour window has closed. Send any "
+                f"message from your WhatsApp to {from_number.replace('whatsapp:', '')} "
+                f"to reopen it, then reminders resume. (raw: {response.text})"
+            )
         raise RuntimeError(f"Twilio {response.status_code}: {response.text}")
     return response.json()
 
