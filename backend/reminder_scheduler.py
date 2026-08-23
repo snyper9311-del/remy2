@@ -51,7 +51,11 @@ def send_whatsapp_message(body, account_sid, auth_token, from_number, to_number)
         data={"From": from_number, "To": to_number, "Body": body},
         timeout=30,
     )
-    response.raise_for_status()
+    if not response.ok:
+        # Twilio's error body has the actual "code"/"message" the generic
+        # HTTP status hides (e.g. 21211 invalid To, 21212 invalid From,
+        # 63016 outside the sandbox's allowed messaging window).
+        raise RuntimeError(f"Twilio {response.status_code}: {response.text}")
     return response.json()
 
 
