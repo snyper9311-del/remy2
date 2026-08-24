@@ -43,6 +43,25 @@
           6
         ]
       }
+    },
+    {
+      "id": "9906573c-d606-4255-b18b-53b01c66279c",
+      "message": "SMS pipeline test — if you got this, delivery works!",
+      "active": true,
+      "schedule": {
+        "type": "hourly",
+        "start_hour": 0,
+        "end_hour": 23,
+        "days_of_week": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      }
     }
   ]
 }
