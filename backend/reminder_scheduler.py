@@ -11,26 +11,32 @@ exact minute), and "every hour" reminders fire once per run while inside
 their configured window. That granularity is a deliberate trade-off for
 running on a low-cost hourly schedule rather than an always-on process.
 
-Delivery is via an email-to-SMS carrier gateway: sending a plain email to
+Delivery is via an email-to-SMS carrier gateway: an email to
 <phone-number>@<carrier's gateway domain> arrives on the phone as a text.
-No SMS account or API needed — just an SMTP sender.
+The email itself is sent through SendGrid's HTTPS API rather than raw
+SMTP — this runs in a sandboxed cloud job whose network policy only
+permits HTTP(S) traffic, so a direct smtplib connection cannot open at
+all (confirmed: it fails with "Address family not supported by
+protocol" regardless of credentials). SendGrid's API is a plain HTTPS
+POST, which works fine through that same policy.
 
 Required environment variables:
-    SMTP_HOST         - SMTP server, e.g. "smtp.gmail.com"
-    SMTP_PORT         - SMTP port, e.g. "587" (defaults to 587 if unset)
-    SMTP_USERNAME     - SMTP login (e.g. your Gmail address)
-    SMTP_PASSWORD     - SMTP password (e.g. a Gmail App Password, not your
-                         account password)
-    SMS_GATEWAY_EMAIL - your phone's carrier gateway address, e.g.
-                         "5551234567@tmomail.net" (see docs/setup.md for
-                         other carriers' gateway domains)
+    SENDGRID_API_KEY   - SendGrid API key (Settings > API Keys in the
+                          SendGrid dashboard; needs "Mail Send" access)
+    SENDGRID_FROM_EMAIL - the email address you verified in SendGrid under
+                          Settings > Sender Authentication > Single Sender
+                          Verification
+    SMS_GATEWAY_EMAIL  - your phone's carrier gateway address, e.g.
+                          "5551234567@tmomail.net" (see docs/setup.md for
+                          other carriers' gateway domains)
 """
 import os
 import sys
 import logging
-import smtplib
+import urllib.request
+import urllib.error
+import json
 from datetime import datetime
-from email.mime.text import MIMEText
 
 try:
     from zoneinfo import ZoneInfo
@@ -46,19 +52,18 @@ from backend.reminders_storage import RemindersManager
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
 
+SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send"
+
 
 def deliver_reminder(message):
-    """Email a reminder to a carrier's SMS gateway address."""
-    smtp_host = os.environ.get("SMTP_HOST")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_username = os.environ.get("SMTP_USERNAME")
-    smtp_password = os.environ.get("SMTP_PASSWORD")
+    """Email a reminder to a carrier's SMS gateway address via SendGrid's API."""
+    api_key = os.environ.get("SENDGRID_API_KEY")
+    from_email = os.environ.get("SENDGRID_FROM_EMAIL")
     to_gateway = os.environ.get("SMS_GATEWAY_EMAIL")
 
     missing = [name for name, val in [
-        ("SMTP_HOST", smtp_host),
-        ("SMTP_USERNAME", smtp_username),
-        ("SMTP_PASSWORD", smtp_password),
+        ("SENDGRID_API_KEY", api_key),
+        ("SENDGRID_FROM_EMAIL", from_email),
         ("SMS_GATEWAY_EMAIL", to_gateway),
     ] if not val]
     if missing:
@@ -67,15 +72,27 @@ def deliver_reminder(message):
     # Carrier gateways render the email body as the text; subject is
     # generally ignored or, worse, prepended to the message, so leave it
     # blank rather than risk a mangled reminder.
-    email_msg = MIMEText(message)
-    email_msg["Subject"] = ""
-    email_msg["From"] = smtp_username
-    email_msg["To"] = to_gateway
-
-    with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
-        server.starttls()
-        server.login(smtp_username, smtp_password)
-        server.sendmail(smtp_username, [to_gateway], email_msg.as_string())
+    payload = {
+        "personalizations": [{"to": [{"email": to_gateway}]}],
+        "from": {"email": from_email},
+        "subject": " ",
+        "content": [{"type": "text/plain", "value": message}],
+    }
+    request = urllib.request.Request(
+        SENDGRID_API_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            response.read()
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"SendGrid {e.code}: {body}")
 
 
 def is_due(schedule, now):

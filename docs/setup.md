@@ -12,18 +12,24 @@ The two halves are connected by git: after changing reminders in the GUI,
 click **"Push to Cloud"** to commit and push `data/reminders.json`. The
 cloud job pulls the latest copy of the repo before each run.
 
-## How delivery works: email-to-SMS gateways
+## How delivery works: email-to-SMS gateways, sent via SendGrid
 
 Every US carrier runs an email gateway that turns a plain email into a
 text: an email sent to `<your-10-digit-number>@<carrier's domain>`
-arrives on the phone as an SMS. No SMS account, no API key, no
-per-message cost — just an email sent over SMTP.
+arrives on the phone as an SMS. That part is free and needs no SMS
+account.
 
-**Trade-off:** this is an unofficial, carrier-run convenience, not a
-supported API. It generally works reliably, but a few carriers have
-discontinued or restricted their gateways over time, and delivery isn't
-guaranteed the way a real SMS API's is. If your carrier's gateway ever
-stops working, that's the first thing to suspect.
+The email itself is sent through **SendGrid's HTTPS API**, not raw SMTP.
+The cloud scheduler runs in a sandboxed environment whose network policy
+only allows HTTP(S) traffic — a direct SMTP connection can't open at all
+there, regardless of credentials. SendGrid's API is a plain HTTPS
+request, so it works fine.
+
+**Trade-off:** the carrier gateway part is an unofficial, carrier-run
+convenience, not a supported API — it generally works reliably, but a
+few carriers have discontinued or restricted their gateways over time.
+If your carrier's gateway ever stops working, that's the first thing to
+suspect. SendGrid itself is a standard, well-supported email API.
 
 ### Carrier gateway domains
 
@@ -42,14 +48,17 @@ stops working, that's the first thing to suspect.
 Your gateway address is your 10-digit number (no dashes or country code)
 `@` the domain for your carrier, e.g. `5551234567@tmomail.net`.
 
-## 1. Set up an SMTP sender (Gmail)
+## 1. Set up SendGrid
 
-1. Turn on **2-Step Verification** on the Google account you'll send
-   from, if it isn't already: https://myaccount.google.com/security
-2. Generate an **App Password**: https://myaccount.google.com/apppasswords
-   — pick any name (e.g. "Remy"), and Google gives you a 16-character
-   password. This is what the scheduler authenticates with, not your
-   normal Google password.
+1. Sign up free at https://signup.sendgrid.com/ (free tier: 100
+   emails/day, no expiration).
+2. Verify a sender address — **Settings → Sender Authentication → Single
+   Sender Verification**. Verify an email address you own (e.g. your own
+   Gmail); you'll get a confirmation email to click. This does *not*
+   require owning a domain.
+3. Create an API key — **Settings → API Keys → Create API Key**. Give it
+   "Mail Send" access (Restricted Access is fine, full access not
+   needed). Copy the key now; SendGrid only shows it once.
 
 ## 2. Set environment variables for the cloud scheduler
 
@@ -57,10 +66,8 @@ Add these to the cloud environment this project runs in:
 
 | Variable | Example | Notes |
 |---|---|---|
-| `SMTP_HOST` | `smtp.gmail.com` | |
-| `SMTP_PORT` | `587` | Optional, defaults to 587 |
-| `SMTP_USERNAME` | `you@gmail.com` | The Gmail address you generated the App Password for |
-| `SMTP_PASSWORD` | `abcdabcdabcdabcd` | The 16-character App Password, not your Google account password |
+| `SENDGRID_API_KEY` | `SG.xxxxxxxxxxxxxxxxxxxx` | From step 1.3 above |
+| `SENDGRID_FROM_EMAIL` | `you@gmail.com` | The address you verified in step 1.2 |
 | `SMS_GATEWAY_EMAIL` | `5551234567@tmomail.net` | Your number + your carrier's gateway domain, from the table above |
 
 ## Managing reminders
@@ -86,14 +93,19 @@ Run `python gui.py` to open Remy:
   job doesn't see local, unpushed edits.
 - Carrier email-to-SMS gateways are unofficial; delivery can occasionally
   be delayed or dropped in a way a real SMS API wouldn't be.
+- SendGrid's free tier is 100 emails/day — far more than a personal
+  reminder bot needs, but worth knowing if you ever add many reminders.
 
 ## Running the scheduler manually (for testing)
 
 ```bash
-export SMTP_HOST=smtp.gmail.com
-export SMTP_PORT=587
-export SMTP_USERNAME=you@gmail.com
-export SMTP_PASSWORD=your16charapppassword
+export SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxx
+export SENDGRID_FROM_EMAIL=you@gmail.com
 export SMS_GATEWAY_EMAIL=5551234567@tmomail.net
 python backend/reminder_scheduler.py
 ```
+
+Note: raw SMTP (and therefore a from-scratch alternative using it)
+cannot be tested from Remy's own cloud job due to the network policy
+described above, but works fine from a normal machine — this constraint
+is specific to where the scheduler runs, not to SMTP itself.
