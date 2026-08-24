@@ -46,7 +46,7 @@ class RemyApp(ctk.CTk):
         lbl_ver.pack(side="left", padx=(8, 0), pady=(8, 0))
 
         lbl_sub = ctk.CTkLabel(
-            self, text="Recurring text reminders, sent by an hourly cloud job via Gmail and your carrier's SMS gateway.",
+            self, text="Recurring text reminders, sent by an hourly cloud job via Textbelt.",
             font=ctk.CTkFont(size=13), text_color="gray60"
         )
         lbl_sub.grid(row=1, column=0, sticky="w", padx=24, pady=(0, 14))
