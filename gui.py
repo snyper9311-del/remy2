@@ -22,7 +22,7 @@ ctk.set_default_color_theme("blue")
 class RemyApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title(f"Remy - WhatsApp Reminders ({APP_VERSION})")
+        self.title(f"Remy - SMS Reminders ({APP_VERSION})")
         self.geometry("760x620")
         self.minsize(600, 460)
 
@@ -274,7 +274,7 @@ class RemyApp(ctk.CTk):
                 self.after(0, lambda: messagebox.showinfo("Nothing to Push", "No reminder changes to push — the cloud copy is already up to date."))
                 return
 
-            subprocess.run(["git", "commit", "-m", "Update WhatsApp reminders"], cwd=BASE_DIR, check=True)
+            subprocess.run(["git", "commit", "-m", "Update SMS reminders"], cwd=BASE_DIR, check=True)
             subprocess.run(["git", "push", "-u", "origin", branch], cwd=BASE_DIR, check=True)
             self.after(0, lambda: messagebox.showinfo("Pushed", f"Reminders pushed to origin/{branch}. The cloud job will pick them up on its next hourly run."))
         except subprocess.CalledProcessError as e:
