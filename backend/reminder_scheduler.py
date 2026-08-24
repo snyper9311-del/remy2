@@ -11,13 +11,26 @@ exact minute), and "every hour" reminders fire once per run while inside
 their configured window. That granularity is a deliberate trade-off for
 running on a low-cost hourly schedule rather than an always-on process.
 
-No delivery provider is wired up yet — deliver_reminder() below is where
-one goes. Until then, this just logs what's due.
+Delivery is via an email-to-SMS carrier gateway: sending a plain email to
+<phone-number>@<carrier's gateway domain> arrives on the phone as a text.
+No SMS account or API needed — just an SMTP sender.
+
+Required environment variables:
+    SMTP_HOST         - SMTP server, e.g. "smtp.gmail.com"
+    SMTP_PORT         - SMTP port, e.g. "587" (defaults to 587 if unset)
+    SMTP_USERNAME     - SMTP login (e.g. your Gmail address)
+    SMTP_PASSWORD     - SMTP password (e.g. a Gmail App Password, not your
+                         account password)
+    SMS_GATEWAY_EMAIL - your phone's carrier gateway address, e.g.
+                         "5551234567@tmomail.net" (see docs/setup.md for
+                         other carriers' gateway domains)
 """
 import os
 import sys
 import logging
+import smtplib
 from datetime import datetime
+from email.mime.text import MIMEText
 
 try:
     from zoneinfo import ZoneInfo
@@ -35,11 +48,34 @@ logger = logging.getLogger(__name__)
 
 
 def deliver_reminder(message):
-    """
-    Send a due reminder somewhere. No provider is configured yet — plug one
-    in here (e.g. an HTTP call to an SMS/email/push API) when one is chosen.
-    """
-    raise NotImplementedError("No delivery provider configured yet.")
+    """Email a reminder to a carrier's SMS gateway address."""
+    smtp_host = os.environ.get("SMTP_HOST")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_username = os.environ.get("SMTP_USERNAME")
+    smtp_password = os.environ.get("SMTP_PASSWORD")
+    to_gateway = os.environ.get("SMS_GATEWAY_EMAIL")
+
+    missing = [name for name, val in [
+        ("SMTP_HOST", smtp_host),
+        ("SMTP_USERNAME", smtp_username),
+        ("SMTP_PASSWORD", smtp_password),
+        ("SMS_GATEWAY_EMAIL", to_gateway),
+    ] if not val]
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+
+    # Carrier gateways render the email body as the text; subject is
+    # generally ignored or, worse, prepended to the message, so leave it
+    # blank rather than risk a mangled reminder.
+    email_msg = MIMEText(message)
+    email_msg["Subject"] = ""
+    email_msg["From"] = smtp_username
+    email_msg["To"] = to_gateway
+
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.sendmail(smtp_username, [to_gateway], email_msg.as_string())
 
 
 def is_due(schedule, now):
@@ -81,8 +117,6 @@ def run():
         try:
             deliver_reminder(message)
             logger.info(f"Delivered reminder {reminder.get('id')}: {message!r}")
-        except NotImplementedError:
-            logger.info(f"Due but not delivered (no provider configured) {reminder.get('id')}: {message!r}")
         except Exception as e:
             logger.error(f"Failed to deliver reminder {reminder.get('id')} ({message!r}): {e}")
 
