@@ -4,7 +4,7 @@
     {
       "id": "5f6a9e3b-7c1d-4e2a-8b3f-1a2b3c4d5e6f",
       "message": "Time to workout for 10 minutes! 💪",
-      "active": true,
+      "active": false,
       "schedule": {
         "type": "hourly",
         "start_hour": 9,
