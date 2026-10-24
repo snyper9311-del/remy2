@@ -17,7 +17,7 @@ the free "textbelt" test key is disabled for US numbers.
 
 Required environment variables:
     TEXTBELT_API_KEY - your paid Textbelt API key (textbelt.com)
-    TEXTBELT_PHONE   - the phone number to text, e.g. "19177697261"
+    TEXTBELT_PHONE   - the phone number to text, e.g. "15551234567"
 """
 import os
 import sys
