@@ -29,7 +29,7 @@ buy.
 | Variable | Example | Notes |
 |---|---|---|
 | `TEXTBELT_API_KEY` | `abc123...` | Your paid key from textbelt.com |
-| `TEXTBELT_PHONE` | `19177697261` | Your number, no `+`, no dashes |
+| `TEXTBELT_PHONE` | `15551234567` | Your number, no `+`, no dashes |
 
 That's it — no sender verification, no domain, no browser-based
 authorization step.
@@ -63,6 +63,6 @@ Run `python gui.py` to open Remy:
 
 ```bash
 export TEXTBELT_API_KEY=abc123...
-export TEXTBELT_PHONE=19177697261
+export TEXTBELT_PHONE=15551234567
 python backend/reminder_scheduler.py
 ```
